@@ -1,46 +1,34 @@
-cmake_minimum_required(VERSION 3.23)
-project(kuiper_infer)
-set(CMAKE_CXX_STANDARD 17)
-include_directories(./include)
+cmake_minimum_required(VERSION 3.9)#Cmake最低版本
+#project(demo LANGUAGES CXX CUDA) #这个写法也是可以的
+project(demo)
+enable_language(CUDA)#激活CUDA语言支持，使用第一个写法时要进行注释
 
-set(USE_CUDA "Support Cuda Backend" ON)
-set(BUILD_DEMO "Build The Demo Project" ON)
+find_package(CUDA)
 
-if (BUILD_DEMO)
-    MESSAGE(STATUS "Build Demo Project")
-    add_subdirectory(demos)
-endif ()
+#设置语言标准
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CUDA_STANDARD 11)   
 
-if (USE_CUDA)
-    MESSAGE(STATUS "Support Cuda Backend")
-    add_definitions(-DUSE_CUDA)
-endif ()
+#添加项目自身的库和依赖
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)#设置编译后的程序存放位置
+aux_source_directory(src SRC_LIST)#添加src目录下的所有源文件
+set (SRC_LIST
+    src/main.cpp
+    src/cuda/im2col.cu
+    src/cuda/gemm.cu
+    src/cuda/preprocess.cu
+    )
+include_directories(include)#添加头文件路径
 
-find_package(benchmark REQUIRED)
-find_package(OpenMP REQUIRED)
-find_package(Armadillo REQUIRED)
-find_package(glog REQUIRED)
+include_directories("/usr/local/cuda-11.7/targets/x86_64-linux/include")#添加头文件路径
 
-aux_source_directory(./source/data DIR_DATA)
-aux_source_directory(./source/runtime DIR_PARSER)
-aux_source_directory(./source/layer/abstract DIR_ABSTRACT_LAYER)
-aux_source_directory(./source/layer/details DIR_BINOCULAR_LAYER)
-aux_source_directory(./source/parser DIR_PARSER)
+#添加OpenCV库（这个库比较常用，所以写个注释在这里）
+find_package(OpenCV 4 REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+message(STATUS "include:${OpenCV_INCLUDE_DIRS}")
+link_libraries(${OpenCV_LIBS})
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true")
 
-set(link_lib glog::glog pthread)
-set(link_math_lib ${ARMADILLO_LIBRARIES} blas lapack)
-
-add_library(kuiper   ${DIR_DATA} ${DIR_PARSER} ${DIR_ABSTRACT_LAYER} ${DIR_BINOCULAR_LAYER} ${DIR_PARSER} )
-target_link_libraries(kuiper ${link_lib} ${link_math_lib} OpenMP::OpenMP_CXX)
-
-target_include_directories(kuiper PUBLIC ${benchmark_INCLUDE_DIRS})
-target_include_directories(kuiper PUBLIC ${glog_INCLUDE_DIR})
-target_include_directories(kuiper PUBLIC ${GTest_INCLUDE_DIR})
-target_include_directories(kuiper PUBLIC ${Armadillo_INCLUDE_DIR})
-
-
-enable_testing()
-add_subdirectory(bench)
-add_subdirectory(test)
+#编译列表
+add_executable(${PROJECT_NAME} ${SRC_LIST})
